@@ -1,62 +1,74 @@
 # Digit-Classifier
 Digit classifier to predict handwritten digits
 
-Let's understand what convolutions  are first-
+To understand what a convolution is please refer to theory.md
 
-Imagine we drop a ball from some height onto the ground, where it only has one dimension of motion. How likely is it that a ball will go a distance c if you drop it and then drop it again from above the point at which it landed?
+Let's understand what convolutional neural networks do, 
 
-Let’s break this down. After the first drop, it will land a units away from the starting point with probability f(a), where f is the probability distribution.
+CNNs are made up of neurons that have learnable weights and biases. Each neuron receives some inputs, performs a dot product and optionally follows it with a non-linearity. The whole network still expresses a single differentiable score function: from the raw image pixels on one end to class scores at the other. And they still have a loss function (e.g. SVM/Softmax) on the last (fully-connected) layer and all the tips/tricks we developed for learning regular Neural Networks still apply.
 
-Now after this first drop, we pick the ball up and drop it from another height above the point where it first landed. The probability of the ball rolling b units away from the new starting point is g(b), where g may be a different probability distribution if it’s dropped from a different height.
+So what changes? ConvNet architectures make the explicit assumption that the inputs are images, which allows us to encode certain properties into the architecture. These then make the forward function more efficient to implement and vastly reduce the amount of parameters in the network.
+
+CS231n does a wonderful job of breaking down the components of a CNN as shown below.
+
+![image](https://user-images.githubusercontent.com/80246631/142727278-8ccccadf-4ba0-44e1-9475-2e7fdee2eec6.png)
 
 
-If we fix the result of the first drop so we know the ball went distance a, for the ball to go a total distance c, the distance traveled in the second drop is also fixed at b, where a+b=c. So the probability of this happening is simply f(a)⋅g(b).1
+### Convolution Layer:
 
-Let’s think about this with a specific discrete example. We want the total distance c to be 3. If the first time it rolls, a=2, the second time it must roll b=1 in order to reach our total distance a+b=3. The probability of this is f(2)⋅g(1).
-![image](https://user-images.githubusercontent.com/80246631/142145868-6f80d499-2fa2-440c-9b15-8c92d7f6b6e9.png)
+![image](https://user-images.githubusercontent.com/80246631/142725232-c69c5d93-bd78-4dab-ae2b-0442a9c9043e.png)
 
-Essentially, here we implement a 2D Convolution network to classify images of dogs and cats.
+1. Accepts a volume of size W1×H1×D1
+2. Requires four hyperparameters:
+3. Number of filters K,
+4. their spatial extent F,
+5. the stride S,
+6. the amount of zero padding P.
+7. Produces a volume of size W2×H2×D2 where:
+8. W2=(W1−F+2P)/S+1
+9. H2=(H1−F+2P)/S+1 (i.e. width and height are computed equally by symmetry)
+10. D2=K
+11. With parameter sharing, it introduces F⋅F⋅D1 weights per filter, for a total of (F⋅F⋅D1)⋅K weights and K biases.
+12. In the output volume, the d-th depth slice (of size W2×H2) is the result of performing a valid convolution of the d-th filter over the input volume with a stride of S, and then offset by d-th bias.
+
+### Pooling Layer:
+
+![image](https://user-images.githubusercontent.com/80246631/142725195-434400fe-c58d-4b4f-888c-d685777cd65f.png)
+
+1. Accepts a volume of size W1×H1×D1
+2. Requires two hyperparameters:
+3. their spatial extent F,
+4. the stride S,
+5. Produces a volume of size W2×H2×D2 where:
+6. W2=(W1−F)/S+1
+7. H2=(H1−F)/S+1
+8. D2=D1
+9. Introduces zero parameters since it computes a fixed function of the input
+10. For Pooling layers, it is not common to pad the input using zero-padding.
+11. It is worth noting that there are only two commonly seen variations of the max pooling layer found in practice: A pooling layer with F=3,S=2 (also called overlapping pooling), and more commonly F=2,S=2. Pooling sizes with larger receptive fields are too destructive.
+
 
 ## Design decisions:
 
-1. For optimization, we used a standard ADAM optimizer with default values for learning rate(0.001), beta1(0.9) and beta2(0.99).
-2. Weights have been initialized using the default Xavier GLOROT scheme.
-3. The loss function used is the binary cross entropy function alongside a sigmoid activation to get values in the range of {0, 1} representing the two classes.
-4. To cross validate, a stratified K-fold validation scheme has been used instead of a standard train-val split. This helped in detecting and reducing overfitting in the model.
-5. To further reduce overfitting, dropout layers were used. Using L2 norm did not help in alleviating the problem of overfitting by a noteworthy margin. Using dropout however, boosted validation accuracy by almost 5%.
+1. We have used 3 `conv2d` layers, ie- we have convolved the input images in three different layers. Although going deeper doesn't necessarily entail that the network will perform better (cue vanishing gradient!), in this case the input data and the number of parameters to be learnt are quite small so it does not lead to such a problem.
+2. We use padding to keep the dimensionality of the output of every convolution layer the same, since the size of the images are alreaady quite small. We do this by using the `padding="same"` parameter.
+3. Adam optimizer is used as a replacement for alternatives like SGD or RMSProp etc. This is done to reduce training time.
+4. A max pool layer is used for sharp feature extraction. Since the images are greyscale and have sharp edges the max pool layers really help a network extract and 'understand' all the features.
+5. Since we are already using a pooling layer for downsampling, the strides for kernel filter has been left at the default value of 1.
+6. We opt for a ReLU non linearity as the activation function for all our layers except the output layer. Default values of learning rate and beta1 and beta2 are used. 
+7. Our final layer is a dense layer of 10 hidden units (number of output labels needed for MNIST digit dataset). Here, the softmax activation is used to output a probability score for each of the 10 labels.
 
 ## Evaluation: 
 
-We use a binary cross entropy loss function.
-
-![image](https://user-images.githubusercontent.com/80246631/142148427-d63b2c4b-427b-48f4-8f6f-db43a0650fe7.png)
-
-The cross entropy loss is a very good measure of how distinguishable two discrete probability distributions are from each other. The sum of the probabilities of predictions add upto 1.
-
-Furthermore, cross entropy is a very textbook loss for problems/formulations such as these. We use it over regression based losses like the mean squared error loss as we want to perform Convex optimization. The MSE function is non-convex for binary classification. In simple terms, if a binary classification model is trained with MSE Cost function, it is not guaranteed to minimize the Cost function. This is because MSE function expects real-valued inputs in range(-∞, ∞), while binary classification models output probabilities in range(0,1) through the sigmoid/logistic function.
-
-![image](https://user-images.githubusercontent.com/80246631/142167678-ae398008-42b2-40d6-bcd4-77d9f1e79092.png)
-
-
-For the purpose of cross validation a 10 fold, stratified K-fold cross validation is performed. Hence, the training data is picked from a strata randomly with ten different hold-outs per fold.
-
-Finally, we plot the cross validation accuracy across 10 folds and find the mean to get a validation accuracy score. From my observation going for this approach instead of a typical train-val split helped increase test accuracy by more than 10%.
-
-
-
-## Metrics: 
+CE loss is used since this is a probabilisitic problem and not a regression problem. Since our output labels are one hot encoded vectors of length 10 we use `categorical crossentropy` to get our output.
 
  ```
- Train Accuracy: 95.72
+ train accuracy: 0.9960
  
- K-fold Validation accuracy: [87.82564997673035, 83.26653242111206, 81.71342611312866, 86.47294640541077, 85.9719455242157, 83.96793603897095, 82.35589265823364,  86.21553778648376, 86.56641840934753, 84.16039943695068]
- 
- Mean Validation accuracy: 84.85166847705841
- 
- Standard deviation: 1.9333284734781433
- 
- Test Accuracy: 83.63
  ```
+ 
+ The output of this code tested against the test set achieved an accuracy of 0.98375 when submitted
+ 
  ## Install Requirements: 
  
 The following were used for making this program-
@@ -77,26 +89,22 @@ The following were used for making this program-
   ```
 https://towardsdatascience.com/tensorflow-gpu-installation-made-easy-use-conda-instead-of-pip-52e5249374bc
  ```
+  ## Usage:
  
+ ```
+ conda install -c conda-forge jupyterlab
+ jupyter-lab
+ #open Digit_classifier_main.ipynb
+ ```
  
  ## Format code to PEP-8 standards (Important for contributing to the repo): 
  
  This repository is strictly based on *PEP-8* standards. To assert PEP-8 standards after editing your own code, use the following: 
  
  ```
- black CatsVSDogs-Dataload.py
- black Classifier_Model.py
+ black Digit_classifier.py
  ```
- 
-If you wish to use change the dataset used here change the following to correctly reflect the directory in `CatsVSDogs-Dataload.py`:
 
-`data_directory = r"C:\Users\Desktop\Desktop\JuPyter Notebooks\data\Cats&Dogs\PetImages"`
-
-The directory names of the categories used for classification can be changed here:
-
-`categories = ["Dog", "Cat"]`
-
-NOTE: This was trained on a 2080Super using tensorflow GPU, images were converted to greyscale and then resized to fit vram constraints. Training will take longer on GPUs not running CUDA, on CPUs and if larger datasets are used.
 
 ### Reference: 
 
