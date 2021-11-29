@@ -79,6 +79,7 @@ The following were used for making this program-
 4. pandas
 5. os module
 6. unittest
+7. Kaggle
  
  ```
  pip install -r requirements.txt
@@ -104,8 +105,13 @@ https://towardsdatascience.com/tensorflow-gpu-installation-made-easy-use-conda-i
  ```
  black Digit_classifier.py
  ```
+## Dataset download 
 
+Running the following cell downloads the dataset using the Kaggle api. 
 
+```
+get_ipython().system("kaggle competitions download -c digit-recognizer")
+```
 ### Reference: 
 
 1. https://cs231n.github.io/convolutional-networks/
