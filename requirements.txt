@@ -4,3 +4,4 @@ numpy
 unittest
 matplotlib
 black
+kaggle
