@@ -1,7 +1,7 @@
 # Digit-Classifier
 Digit classifier to predict handwritten digits
 
-To understand what a convolution is please refer to theory.md
+
 
 Let's understand what convolutional neural networks do, 
 
